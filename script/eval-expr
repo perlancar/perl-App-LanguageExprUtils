@@ -1,0 +1,86 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010;
+use strict;
+use warnings;
+
+use Perinci::CmdLine::Any;
+
+our %SPEC;
+
+$SPEC{eval_expr} = {
+    v => 1.1,
+    summary => 'Evaluate Expr',
+    description => <<'_',
+
+This script can evaluate Expr (see <pm:Language::Expr::Manual::Syntax>).
+
+_
+    args_rels => {
+    },
+    args => {
+        expr => {
+            schema=>'str*',
+            pos=>0,
+        },
+        compiler => {
+            summary => "Select compiler",
+            schema=>['str*', in=>[qw/perl js/]],
+            default => 'perl',
+            cmdline_aliases => {C=>{}},
+        },
+        eval => {
+            schema => 'bool*',
+        },
+    },
+    examples => [
+        {
+            src => q([[prog]] '2^3'),
+            src_plang => 'bash',
+        },
+        {
+            src => q([[prog]] -c '2^3'),
+            src_plang => 'bash',
+        },
+    ],
+};
+sub eval_expr {
+    require Language::Expr;
+    my $le = Language::Expr->new;
+
+    my %args = @_;
+
+    my $expr = $args{expr};
+
+    my $compiler = $args{compiler};
+    my $compiled_code = $le->get_compiler($compiler)->compile($expr);
+
+    if ($args{eval}) {
+        if ($compiler ne 'perl') {
+            return [412, "Cannot eval unless compiler is perl"];
+        } else {
+            use Data::Dump::Color;
+            my $res;
+            eval "\$res = $compiled_code";
+            return [500, "Compiled code error when run: $@"] if $@;
+            dd $res;
+            return [200];
+        }
+    } else {
+        return [200, "OK", $compiled_code];
+    }
+}
+
+my $cli = Perinci::CmdLine::Any->new(
+    url => '/main/eval_expr',
+    pass_cmdline_object => 1,
+);
+$cli->run;
+
+# ABSTRACT:
+# PODNAME:
+
+=cut
